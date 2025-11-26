@@ -1,0 +1,15 @@
+{
+  "originHash" : "f30dd2d4bd289a011efbd0aff92b419135aa9c9368bf92a440b17bfc805cb993",
+  "pins" : [
+    {
+      "identity" : "vlc",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/omaralbeik/VLC.git",
+      "state" : {
+        "revision" : "9ff95718f4edce0368cc095a8e44fd31ddedb71a",
+        "version" : "3.6.0"
+      }
+    }
+  ],
+  "version" : 3
+}
