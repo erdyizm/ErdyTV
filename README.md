@@ -17,8 +17,9 @@ A modern macOS IPTV player built with SwiftUI and powered by VLC's MobileVLCKit 
 ### 📺 Player Features
 - **Seek Support**: Timeline scrubbing for VOD content
 - **Playback Controls**: Play/pause, skip forward/backward (10s)
-- **Volume Control**: Integrated volume slider
-- **Auto-Hide Controls**: Controls fade out during playback for distraction-free viewing
+- **Volume Control**: Integrated volume slider with persistence
+- **Auto-Hide Controls**: Controls and mouse cursor fade out after 5 seconds of inactivity
+- **Channel Info**: Displays channel name in title bar and fullscreen overlay
 
 ### 🎨 User Interface
 - **Category Management**: 
@@ -26,14 +27,21 @@ A modern macOS IPTV player built with SwiftUI and powered by VLC's MobileVLCKit 
   - Reorder categories via drag-and-drop
   - Auto-expand selected channel's category
 - **Channel Highlighting**: Currently playing channel is highlighted in the sidebar
-- **Search**: Quick search across all channels
-- **Responsive Design**: Clean, modern SwiftUI interface
+- **Search**: Quick search across all channels (min 3 characters)
+- **Resizable Sidebar**: Customizable sidebar width in windowed mode
+- **Fullscreen Overlay**: Access channel list in fullscreen by hovering the left edge
+- **Settings**: Toggle channel icons visibility
 
 ### 💾 Persistence
 - **Settings Storage**: All preferences saved to UserDefaults
 - **Playlist URL**: Remembers your IPTV playlist URL
 - **Category Preferences**: Saves visibility and order of categories
 - **Session Restore**: Maintains your settings across app launches
+- **Volume State**: Remembers last volume level
+
+### ℹ️ Help & Support
+- **Built-in Help**: Comprehensive guide accessible via "ErdyTV Help" menu
+- **About Box**: Quick access to version info and source code repository
 
 ## Screenshots
 
@@ -76,13 +84,17 @@ Download the latest release from the [Releases](https://github.com/erdyizm/ErdyT
 ## Usage
 
 1. **First Launch**: Enter your IPTV M3U playlist URL
-2. **Browse Categories**: Use the sidebar to navigate through channel categories
+2. **Browse & Search**: Use the sidebar to navigate categories or search for channels (top bar)
 3. **Watch**: Click on any channel to start playback
-4. **Manage Categories**: 
+4. **Controls**:
+    - **Volume**: Use the slider in the control bar
+    - **Fullscreen**: Double-click video or use the icon (hover left edge for channel list)
+    - **Settings**: Toggle channel icons via `ErdyTV > Settings`
+5. **Manage Categories**: 
    - Click the filter icon in the sidebar
    - Toggle category visibility
    - Click "Reorder" to drag categories into your preferred order
-5. **Fullscreen**: Double-click the video player or use the fullscreen button
+6. **Help**: Access the built-in guide via `Help > ErdyTV Help`
 
 ## Configuration
 
