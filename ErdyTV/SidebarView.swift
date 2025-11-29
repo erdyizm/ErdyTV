@@ -3,52 +3,72 @@ import SwiftUI
 struct SidebarView: View {
     @ObservedObject var playlistManager: PlaylistManager
     @Binding var selectedChannel: Channel?
-    @State private var expandedCategories: Set<UUID> = []
+    @Binding var expandedCategories: Set<UUID>
     @State private var searchText = ""
     @State private var showingFilterSheet = false
+    @AppStorage("showChannelIcons") private var showChannelIcons = true
 
     var body: some View {
-        List(selection: $selectedChannel) {
-            ForEach(filteredCategories) { category in
-                DisclosureGroup(
-                    isExpanded: Binding(
-                        get: { expandedCategories.contains(category.id) },
-                        set: { isExpanded in
-                            if isExpanded {
-                                expandedCategories.insert(category.id)
-                            } else {
-                                expandedCategories.remove(category.id)
-                            }
-                        }
-                    )
-                ) {
-                    ForEach(category.channels) { channel in
-                        NavigationLink(value: channel) {
-                            HStack {
-                                if let logo = channel.logoURL {
-                                    AsyncImageView(url: logo)
-                                        .frame(width: 30, height: 30)
-                                        .cornerRadius(4)
+        ZStack {
+            List(selection: $selectedChannel) {
+                ForEach(filteredCategories) { category in
+                    DisclosureGroup(
+                        isExpanded: Binding(
+                            get: { expandedCategories.contains(category.id) },
+                            set: { isExpanded in
+                                if isExpanded {
+                                    expandedCategories.insert(category.id)
                                 } else {
-                                    Image(systemName: "tv")
-                                        .frame(width: 30, height: 30)
+                                    expandedCategories.remove(category.id)
                                 }
-                                
-                                Text(channel.name)
-                                    .lineLimit(1)
-                                Spacer()
                             }
-                            .padding(.vertical, 4)
-                            .padding(.horizontal, 8)
-                            .background(selectedChannel?.id == channel.id ? Color.accentColor.opacity(0.2) : Color.clear)
-                            .cornerRadius(8)
+                        )
+                    ) {
+                        ForEach(category.channels) { channel in
+                            NavigationLink(value: channel) {
+                                HStack {
+                                    if showChannelIcons {
+                                        if let logo = channel.logoURL {
+                                            AsyncImageView(url: logo)
+                                                .frame(width: 30, height: 30)
+                                                .cornerRadius(4)
+                                        } else {
+                                            Image(systemName: "tv")
+                                                .frame(width: 30, height: 30)
+                                        }
+                                    }
+                                    
+                                    Text(channel.name)
+                                        .lineLimit(1)
+                                    Spacer()
+                                }
+                                .padding(.vertical, 4)
+                                .padding(.horizontal, 8)
+                                .background(selectedChannel?.id == channel.id ? Color.accentColor.opacity(0.2) : Color.clear)
+                                .cornerRadius(8)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
+                    } label: {
+                        Text(category.name)
+                            .font(.headline)
+                            .foregroundStyle(.primary)
                     }
-                } label: {
-                    Text(category.name)
-                        .font(.headline)
-                        .foregroundStyle(.primary)
+                }
+            }
+            
+            if playlistManager.isLoading {
+                Color(nsColor: .windowBackgroundColor)
+                    .opacity(0.8)
+                    .ignoresSafeArea()
+                
+                VStack {
+                    ProgressView()
+                        .scaleEffect(1.5)
+                    Text("Loading Channels...")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.top, 8)
                 }
             }
         }
@@ -84,10 +104,10 @@ struct SidebarView: View {
         cats = cats.filter { playlistManager.visibleCategories.contains($0.name) }
         
         // Filter by search text
-        if !searchText.isEmpty {
+        if searchText.count >= 3 {
             cats = cats.map { category in
                 let filteredChannels = category.channels.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
-                return Category(name: category.name, channels: filteredChannels)
+                return Category(id: category.id, name: category.name, channels: filteredChannels)
             }.filter { !$0.channels.isEmpty }
         }
         

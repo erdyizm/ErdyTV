@@ -9,6 +9,7 @@ import SwiftUI
 
 @main
 struct ErdyTVApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var playlistManager = PlaylistManager()
     
     var body: some Scene {
@@ -21,6 +22,44 @@ struct ErdyTVApp: App {
                     playlistManager.clearPlaylist()
                 }
             }
+            
+            CommandGroup(replacing: .appInfo) {
+                Button("About ErdyTV") {
+                    NSApp.orderFrontStandardAboutPanel(
+                        options: [
+                            NSApplication.AboutPanelOptionKey.credits: NSAttributedString(
+                                string: "Source Code: https://github.com/erdyizm/ErdyTV",
+                                attributes: [
+                                    .font: NSFont.systemFont(ofSize: 11),
+                                    .foregroundColor: NSColor.labelColor
+                                ]
+                            ),
+                            NSApplication.AboutPanelOptionKey.ApplicationName: "ErdyTV"
+                        ]
+                    )
+                }
+            }
         }
+        
+        Settings {
+            SettingsView()
+        }
+    }
+}
+
+class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        // Force windowed mode on launch
+        DispatchQueue.main.async {
+            for window in NSApp.windows {
+                if window.styleMask.contains(.fullScreen) {
+                    window.toggleFullScreen(nil)
+                }
+            }
+        }
+    }
+    
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        return true
     }
 }

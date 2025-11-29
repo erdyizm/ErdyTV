@@ -60,6 +60,28 @@ struct VideoControlsView: View {
                         }
                         .buttonStyle(.plain)
                     }
+                    
+                    Button {
+                        viewModel.requestFullscreen()
+                    } label: {
+                        Image(systemName: "arrow.up.left.and.arrow.down.right")
+                            .font(.title2)
+                    }
+                    .buttonStyle(.plain)
+                    
+                    // Volume
+                    HStack(spacing: 8) {
+                        Image(systemName: "speaker.wave.2.fill")
+                            .font(.caption)
+                            .foregroundColor(.white)
+                        
+                        Slider(value: Binding(
+                            get: { viewModel.volume },
+                            set: { viewModel.setVolume($0) }
+                        ), in: 0...1)
+                        .frame(width: 80)
+                        .tint(.white)
+                    }
                 }
             }
             .padding()

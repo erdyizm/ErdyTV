@@ -10,12 +10,22 @@ class PlayerViewModel: NSObject, ObservableObject, VLCMediaPlayerDelegate {
     @Published var duration: Double = 0
     @Published var isLive = false
     @Published var showControls = false
+    @Published var isBuffering = false
+    @Published var volume: Float = 1.0
+    
+    let fullscreenRequested = PassthroughSubject<Void, Never>()
     
     private var hideControlsTimer: Timer?
+    private let kVolumeKey = "player_volume"
     
     override init() {
         super.init()
         player.delegate = self
+        
+        // Load saved volume
+        if UserDefaults.standard.object(forKey: kVolumeKey) != nil {
+            volume = UserDefaults.standard.float(forKey: kVolumeKey)
+        }
     }
     
     func loadChannel(_ channel: Channel) {
@@ -27,6 +37,9 @@ class PlayerViewModel: NSObject, ObservableObject, VLCMediaPlayerDelegate {
         
         player.media = media
         player.play()
+        
+        // Apply volume
+        player.audio?.volume = Int32(volume * 100)
         
         isLive = channel.isLive
         showControls = true
@@ -73,9 +86,21 @@ class PlayerViewModel: NSObject, ObservableObject, VLCMediaPlayerDelegate {
         resetHideControlsTimer()
     }
     
+    func requestFullscreen() {
+        fullscreenRequested.send()
+        userInteracted()
+    }
+    
+    func setVolume(_ value: Float) {
+        volume = value
+        player.audio?.volume = Int32(value * 100)
+        UserDefaults.standard.set(value, forKey: kVolumeKey)
+        userInteracted()
+    }
+    
     private func resetHideControlsTimer() {
         hideControlsTimer?.invalidate()
-        hideControlsTimer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: false) { [weak self] _ in
+        hideControlsTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { [weak self] _ in
             withAnimation {
                 self?.showControls = false
             }
@@ -87,6 +112,9 @@ class PlayerViewModel: NSObject, ObservableObject, VLCMediaPlayerDelegate {
     func mediaPlayerStateChanged(_ aNotification: Notification) {
         DispatchQueue.main.async {
             self.isPlaying = self.player.isPlaying
+            
+            // Update buffering state
+            self.isBuffering = self.player.state == .opening || self.player.state == .buffering
             
             if self.player.state == .playing {
                 // Check if live based on length
@@ -106,6 +134,10 @@ class PlayerViewModel: NSObject, ObservableObject, VLCMediaPlayerDelegate {
     func mediaPlayerTimeChanged(_ aNotification: Notification) {
         DispatchQueue.main.async {
             self.currentTime = Double(self.player.time.intValue) / 1000.0
+            // If time is changing, we are definitely playing
+            if self.isBuffering {
+                self.isBuffering = false
+            }
         }
     }
 }

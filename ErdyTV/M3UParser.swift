@@ -17,9 +17,15 @@ struct Channel: Identifiable, Hashable {
 }
 
 struct Category: Identifiable, Hashable {
-    let id = UUID()
+    let id: UUID
     let name: String
     var channels: [Channel]
+    
+    init(id: UUID = UUID(), name: String, channels: [Channel]) {
+        self.id = id
+        self.name = name
+        self.channels = channels
+    }
 }
 
 class M3UParser {
