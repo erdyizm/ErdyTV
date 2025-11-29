@@ -34,7 +34,7 @@ struct ErdyTVApp: App {
                                     .foregroundColor: NSColor.labelColor
                                 ]
                             ),
-                            NSApplication.AboutPanelOptionKey.ApplicationName: "ErdyTV"
+                            NSApplication.AboutPanelOptionKey.applicationName: "ErdyTV"
                         ]
                     )
                 }
