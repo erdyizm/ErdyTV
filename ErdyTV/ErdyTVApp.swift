@@ -25,15 +25,19 @@ struct ErdyTVApp: App {
             
             CommandGroup(replacing: .appInfo) {
                 Button("About ErdyTV") {
+                    let credits = NSMutableAttributedString(
+                        string: "You can find the Source Code of the application from the following Git link: \n https://github.com/erdyizm/ErdyTV",
+                        attributes: [
+                            .font: NSFont.systemFont(ofSize: 11),
+                            .foregroundColor: NSColor.labelColor
+                        ]
+                    )
+                    let range = (credits.string as NSString).range(of: "https://github.com/erdyizm/ErdyTV")
+                    credits.addAttribute(.link, value: "https://github.com/erdyizm/ErdyTV", range: range)
+                    
                     NSApp.orderFrontStandardAboutPanel(
                         options: [
-                            NSApplication.AboutPanelOptionKey.credits: NSAttributedString(
-                                string: "Source Code: https://github.com/erdyizm/ErdyTV",
-                                attributes: [
-                                    .font: NSFont.systemFont(ofSize: 11),
-                                    .foregroundColor: NSColor.labelColor
-                                ]
-                            ),
+                            NSApplication.AboutPanelOptionKey.credits: credits,
                             NSApplication.AboutPanelOptionKey.applicationName: "ErdyTV"
                         ]
                     )
