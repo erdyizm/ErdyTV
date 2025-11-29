@@ -15,6 +15,7 @@ struct ErdyTVApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView(playlistManager: playlistManager)
+                .handlesExternalEvents(preferring: [], allowing: []) // Don't handle help URLs here
         }
         .commands {
             CommandGroup(after: .newItem) {
@@ -47,6 +48,20 @@ struct ErdyTVApp: App {
         
         Settings {
             SettingsView()
+        }
+        
+        WindowGroup(id: "help") {
+            HelpView()
+        }
+        .handlesExternalEvents(matching: ["help"])
+        .commands {
+            CommandGroup(replacing: .help) {
+                Button("ErdyTV Help") {
+                    if let url = URL(string: "erdytv://help") {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+            }
         }
     }
 }
