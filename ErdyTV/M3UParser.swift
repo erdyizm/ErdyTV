@@ -8,11 +8,27 @@ struct Channel: Identifiable, Hashable {
     let group: String
     
     var isLive: Bool {
-        // Simple heuristic: .m3u8 usually implies HLS (could be live or VOD), 
-        // but often IPTV providers use .ts or no extension for live.
-        // For now, let's assume everything is live unless it ends in common video extensions.
+        // Check for common video extensions
         let ext = streamURL.pathExtension.lowercased()
-        return !["mp4", "mkv", "avi", "mov"].contains(ext)
+        if ["mp4", "mkv", "avi", "mov", "flv", "wmv"].contains(ext) {
+            return false
+        }
+        
+        // Check for Series/Episode patterns in the name
+        // e.g. "S01E01", "E01", "Season 1"
+        let patterns = [
+            "S\\d+E\\d+",      // S01E01
+            "\\sE\\d+",        // E01
+            "Season\\s*\\d+"   // Season 1
+        ]
+        
+        for pattern in patterns {
+            if name.range(of: pattern, options: .regularExpression) != nil {
+                return false
+            }
+        }
+        
+        return true
     }
 }
 

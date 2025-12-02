@@ -2,14 +2,14 @@ import Foundation
 
 enum ChannelItem: Identifiable, Hashable {
     case channel(Channel)
-    case group(name: String, channels: [Channel])
+    case group(id: String, name: String, items: [ChannelItem])
     
     var id: String {
         switch self {
         case .channel(let channel):
             return channel.id.uuidString
-        case .group(let name, _):
-            return "group_\(name)"
+        case .group(let id, _, _):
+            return id
         }
     }
     
@@ -17,7 +17,7 @@ enum ChannelItem: Identifiable, Hashable {
         switch self {
         case .channel(let channel):
             return channel.name
-        case .group(let name, _):
+        case .group(_, let name, _):
             return name
         }
     }
@@ -25,7 +25,7 @@ enum ChannelItem: Identifiable, Hashable {
 
 class ChannelGrouper {
     static func groupChannels(_ channels: [Channel]) -> [ChannelItem] {
-        if channels.count < 5 {
+        if channels.count < 3 {
             return channels.map { .channel($0) }
         }
         
@@ -33,95 +33,111 @@ class ChannelGrouper {
         let sortedChannels = channels.sorted { $0.name < $1.name }
         
         // Regex patterns to identify series
-        // 1. "Name S01E01" -> Group: "Name S01"
+        // 1. "Name S01E01" -> Group: "Name"
         // 2. "Name E01" -> Group: "Name"
-        let patterns = [
-            // Match "Name S01" part
+        let seriesPatterns = [
             try! NSRegularExpression(pattern: "^(.*?)\\s+S(\\d+)", options: .caseInsensitive),
-            // Match "Name E01" part (if no Season)
             try! NSRegularExpression(pattern: "^(.*?)\\s+E(\\d+)", options: .caseInsensitive)
         ]
         
         var i = 0
         while i < sortedChannels.count {
             let current = sortedChannels[i]
-            var groupName: String? = nil
+            var seriesName: String? = nil
             
-            // Try to match a pattern
-            for pattern in patterns {
+            // Try to match a series pattern
+            for pattern in seriesPatterns {
                 let range = NSRange(location: 0, length: current.name.utf16.count)
                 if let match = pattern.firstMatch(in: current.name, options: [], range: range) {
                     if let range1 = Range(match.range(at: 1), in: current.name) {
-                        let namePart = String(current.name[range1])
-                        
-                        // If pattern 1 (Season), append Season number to group name
-                        if pattern.pattern.contains("S(\\d+)") {
-                            if let range2 = Range(match.range(at: 2), in: current.name) {
-                                let seasonPart = String(current.name[range2])
-                                groupName = "\(namePart) S\(seasonPart)"
-                            }
-                        } else {
-                            groupName = namePart
-                        }
+                        seriesName = String(current.name[range1]).trimmingCharacters(in: .whitespacesAndNewlines)
                         break
                     }
                 }
             }
             
-            // If we found a potential group name, look ahead
-            if let detectedGroup = groupName {
-                var group: [Channel] = [current]
+            // Fallback: Common Prefix Logic
+            if seriesName == nil && i + 1 < sortedChannels.count {
+                let next = sortedChannels[i + 1]
+                if let prefix = commonPrefix(current.name, next.name), prefix.count > 5 {
+                    seriesName = prefix.trimmingCharacters(in: .whitespacesAndNewlines)
+                        .trimmingCharacters(in: CharacterSet(charactersIn: "-_:|"))
+                }
+            }
+            
+            if let groupName = seriesName {
+                var groupChannels: [Channel] = [current]
                 var j = i + 1
                 while j < sortedChannels.count {
                     let next = sortedChannels[j]
-                    if next.name.starts(with: detectedGroup) {
-                        group.append(next)
+                    if next.name.starts(with: groupName) {
+                        groupChannels.append(next)
                         j += 1
                     } else {
                         break
                     }
                 }
                 
-                if group.count >= 3 {
-                    items.append(.group(name: detectedGroup.trimmingCharacters(in: .whitespacesAndNewlines), channels: group))
+                if groupChannels.count >= 3 {
+                    // We found a series group. Now check for seasons within this group.
+                    let groupItems = groupSeasons(groupChannels, seriesName: groupName)
+                    items.append(.group(id: "group_\(groupName)", name: groupName, items: groupItems))
                     i = j
                     continue
-                }
-            }
-            
-            // Fallback: Common Prefix Logic (Relaxed)
-            if i + 1 < sortedChannels.count {
-                let next = sortedChannels[i + 1]
-                if let prefix = commonPrefix(current.name, next.name), prefix.count > 5 {
-                    // Check if this prefix is "significant" (e.g. ends with a separator or space)
-                    // This prevents cutting off in the middle of a word like "Movie 1" vs "Movie 10" -> "Movie 1"
-                    
-                    var j = i + 1
-                    var group: [Channel] = [current]
-                    
-                    while j < sortedChannels.count {
-                        if sortedChannels[j].name.hasPrefix(prefix) {
-                            group.append(sortedChannels[j])
-                            j += 1
-                        } else {
-                            break
-                        }
-                    }
-                    
-                    if group.count >= 3 {
-                        // Clean the name
-                        let cleanName = prefix.trimmingCharacters(in: .whitespacesAndNewlines)
-                            .trimmingCharacters(in: CharacterSet(charactersIn: "-_:|"))
-                        items.append(.group(name: cleanName, channels: group))
-                        i = j
-                        continue
-                    }
                 }
             }
             
             items.append(.channel(current))
             i += 1
         }
+        
+        return items
+    }
+    
+    private static func groupSeasons(_ channels: [Channel], seriesName: String) -> [ChannelItem] {
+        // Regex to extract season number: "S01" or "Season 1"
+        let seasonPattern = try! NSRegularExpression(pattern: "S(\\d+)|Season\\s*(\\d+)", options: .caseInsensitive)
+        
+        var seasonMap: [String: [Channel]] = [:]
+        var otherChannels: [Channel] = []
+        
+        for channel in channels {
+            let range = NSRange(location: 0, length: channel.name.utf16.count)
+            if let match = seasonPattern.firstMatch(in: channel.name, options: [], range: range) {
+                var seasonNum: String?
+                if match.range(at: 1).location != NSNotFound, let r = Range(match.range(at: 1), in: channel.name) {
+                    seasonNum = String(channel.name[r])
+                } else if match.range(at: 2).location != NSNotFound, let r = Range(match.range(at: 2), in: channel.name) {
+                    seasonNum = String(channel.name[r])
+                }
+                
+                if let num = seasonNum {
+                    let key = "Season \(Int(num) ?? 0)" // Normalize "01" to "1"
+                    seasonMap[key, default: []].append(channel)
+                    continue
+                }
+            }
+            otherChannels.append(channel)
+        }
+        
+        var items: [ChannelItem] = []
+        
+        // Add Season groups
+        let sortedSeasons = seasonMap.keys.sorted {
+            let n1 = Int($0.components(separatedBy: " ").last ?? "0") ?? 0
+            let n2 = Int($1.components(separatedBy: " ").last ?? "0") ?? 0
+            return n1 < n2
+        }
+        
+        for season in sortedSeasons {
+            if let seasonChannels = seasonMap[season] {
+                let seasonId = "group_\(seriesName)_\(season)"
+                items.append(.group(id: seasonId, name: season, items: seasonChannels.map { .channel($0) }))
+            }
+        }
+        
+        // Add remaining channels
+        items.append(contentsOf: otherChannels.map { .channel($0) })
         
         return items
     }
@@ -139,12 +155,8 @@ class ChannelGrouper {
             }
         }
         
-        // Backtrack to the last space or separator to avoid splitting numbers
-        // e.g. "Show E0" -> "Show E" -> "Show "
         if prefix.count > 0 {
-            // If the prefix ends with a digit, it might be the cause of the issue (E0 vs E1)
             if let last = prefix.last, last.isNumber {
-                // Remove trailing digits
                 while let last = prefix.last, last.isNumber {
                     prefix.removeLast()
                 }

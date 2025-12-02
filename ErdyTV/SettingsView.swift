@@ -4,13 +4,25 @@ struct SettingsView: View {
     @ObservedObject var playlistManager: PlaylistManager
     @AppStorage("showChannelIcons") private var showChannelIcons = true
     @AppStorage("enableChannelGrouping") private var enableChannelGrouping = true
+    @AppStorage("networkCaching") private var networkCaching = 1500
     
     var body: some View {
         TabView {
             Form {
-                Section {
+                Section("General") {
                     Toggle("Show Channel Icons", isOn: $showChannelIcons)
                     Toggle("Enable Channel Grouping", isOn: $enableChannelGrouping)
+                }
+                
+                Section("Playback") {
+                    Picker("Buffering Duration", selection: $networkCaching) {
+                        Text("300 ms (Standard)").tag(300)
+                        Text("1000 ms (1 sec)").tag(1000)
+                        Text("1500 ms (1.5 sec)").tag(1500)
+                        Text("3000 ms (3 sec)").tag(3000)
+                        Text("5000 ms (5 sec)").tag(5000)
+                    }
+                    .help("Higher values improve stability but increase delay.")
                 }
             }
             .tabItem {

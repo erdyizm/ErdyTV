@@ -18,6 +18,8 @@ class PlayerViewModel: NSObject, ObservableObject, VLCMediaPlayerDelegate {
     private var hideControlsTimer: Timer?
     private let kVolumeKey = "player_volume"
     
+    private var expectedIsLive = false
+    
     override init() {
         super.init()
         player.delegate = self
@@ -31,9 +33,23 @@ class PlayerViewModel: NSObject, ObservableObject, VLCMediaPlayerDelegate {
     func loadChannel(_ channel: Channel) {
         player.stop()
         
+        expectedIsLive = channel.isLive
+        
         let media = VLCMedia(url: channel.streamURL)
-        // Add options if needed, e.g. for network caching
-        // media.addOptions(["--network-caching=1000"])
+        
+        // Add options to fix freezing on live streams
+        // network-caching: Increase buffer to 1.5s (or user setting)
+        // clock-jitter: Disable clock jitter correction
+        // clock-synchro: Disable clock synchronization
+        
+        let caching = UserDefaults.standard.integer(forKey: "networkCaching")
+        let networkCaching = caching > 0 ? caching : 1500 // Default to 1500 if not set
+        
+        media.addOptions([
+            "network-caching": networkCaching,
+            "clock-jitter": 0,
+            "clock-synchro": 0
+        ])
         
         player.media = media
         player.play()
@@ -121,8 +137,12 @@ class PlayerViewModel: NSObject, ObservableObject, VLCMediaPlayerDelegate {
                 // VLC length is -1 or 0 for live streams often, or very large
                 let length = self.player.media?.length.intValue ?? 0
                 if length <= 0 {
-                    self.isLive = true
-                    self.duration = 0
+                    // Only switch to live if we EXPECT it to be live
+                    // Otherwise, assume it's VOD and duration just hasn't loaded yet
+                    if self.expectedIsLive {
+                        self.isLive = true
+                        self.duration = 0
+                    }
                 } else {
                     self.isLive = false
                     self.duration = Double(length) / 1000.0

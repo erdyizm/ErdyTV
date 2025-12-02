@@ -67,77 +67,13 @@ struct SidebarView: View {
                                 }
                             )
                         ) {
-                            ForEach(itemsForCategory(category)) { item in
-                                switch item {
-                                case .channel(let channel):
-                                    ChannelRow(channel: channel, selectedChannel: selectedChannel, showIcon: showChannelIcons)
-                                        .tag(channel) // Important for selection
-                                        .contextMenu {
-                                            Button {
-                                                selectedChannel = channel
-                                            } label: {
-                                                Label("Play", systemImage: "play.fill")
-                                            }
-                                            
-                                            Divider()
-                                            
-                                            Button(role: .destructive) {
-                                                playlistManager.blockChannel(channel)
-                                            } label: {
-                                                Label("Remove Channel", systemImage: "trash")
-                                            }
-                                        }
-                                    
-                                case .group(let name, let channels):
-                                    DisclosureGroup(
-                                        isExpanded: Binding(
-                                            get: { expandedGroups.contains(item.id) },
-                                            set: { isExpanded in
-                                                if isExpanded {
-                                                    expandedGroups.insert(item.id)
-                                                } else {
-                                                    expandedGroups.remove(item.id)
-                                                }
-                                            }
-                                        )
-                                    ) {
-                                        ForEach(channels) { channel in
-                                            ChannelRow(channel: channel, selectedChannel: selectedChannel, showIcon: showChannelIcons)
-                                                .tag(channel)
-                                                .contextMenu {
-                                                    Button {
-                                                        selectedChannel = channel
-                                                    } label: {
-                                                        Label("Play", systemImage: "play.fill")
-                                                    }
-                                                    
-                                                    Divider()
-                                                    
-                                                    Button(role: .destructive) {
-                                                        playlistManager.blockChannel(channel)
-                                                    } label: {
-                                                        Label("Remove Channel", systemImage: "trash")
-                                                    }
-                                                }
-                                        }
-                                    } label: {
-                                        HStack {
-                                            Image(systemName: "folder")
-                                                .foregroundColor(.secondary)
-                                            Text(name)
-                                                .font(.subheadline)
-                                            Spacer()
-                                            Text("\(channels.count)")
-                                                .font(.caption)
-                                                .foregroundColor(.secondary)
-                                                .padding(.horizontal, 6)
-                                                .background(Color.secondary.opacity(0.2))
-                                                .cornerRadius(4)
-                                        }
-                                        .padding(.vertical, 2)
-                                    }
-                                }
-                            }
+                            ChannelListView(
+                                items: itemsForCategory(category),
+                                selectedChannel: $selectedChannel,
+                                expandedGroups: $expandedGroups,
+                                playlistManager: playlistManager,
+                                showChannelIcons: showChannelIcons
+                            )
                         } label: {
                             Text(category.name)
                                 .font(.headline)
@@ -221,6 +157,89 @@ struct SidebarView: View {
         } else {
             return category.channels.map { ChannelItem.channel($0) }
         }
+    }
+}
+
+struct ChannelListView: View {
+    let items: [ChannelItem]
+    @Binding var selectedChannel: Channel?
+    @Binding var expandedGroups: Set<String>
+    @ObservedObject var playlistManager: PlaylistManager
+    let showChannelIcons: Bool
+    
+    var body: some View {
+        ForEach(items) { item in
+            switch item {
+            case .channel(let channel):
+                ChannelRow(channel: channel, selectedChannel: selectedChannel, showIcon: showChannelIcons)
+                    .tag(channel)
+                    .contextMenu {
+                        Button {
+                            selectedChannel = channel
+                        } label: {
+                            Label("Play", systemImage: "play.fill")
+                        }
+                        
+                        Divider()
+                        
+                        Button(role: .destructive) {
+                            playlistManager.blockChannel(channel)
+                        } label: {
+                            Label("Remove Channel", systemImage: "trash")
+                        }
+                    }
+                
+            case .group(let id, let name, let subItems):
+                DisclosureGroup(
+                    isExpanded: Binding(
+                        get: { expandedGroups.contains(id) },
+                        set: { isExpanded in
+                            if isExpanded {
+                                expandedGroups.insert(id)
+                            } else {
+                                expandedGroups.remove(id)
+                            }
+                        }
+                    )
+                ) {
+                    ChannelListView(
+                        items: subItems,
+                        selectedChannel: $selectedChannel,
+                        expandedGroups: $expandedGroups,
+                        playlistManager: playlistManager,
+                        showChannelIcons: showChannelIcons
+                    )
+                } label: {
+                    HStack {
+                        Image(systemName: "folder")
+                            .foregroundColor(.secondary)
+                        Text(name)
+                            .font(.subheadline)
+                        Spacer()
+                        Text("\(countChannels(in: subItems))")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal, 6)
+                            .background(Color.secondary.opacity(0.2))
+                            .cornerRadius(4)
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+        }
+    }
+    
+    func countChannels(in items: [ChannelItem]) -> Int {
+        var count = 0
+        for item in items {
+            switch item {
+            case .channel:
+                count += 1
+            case .group(_, _, let subItems):
+                count += countChannels(in: subItems)
+            }
+        }
+        return count
     }
 }
 
