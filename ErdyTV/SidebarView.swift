@@ -67,12 +67,7 @@ struct SidebarView: View {
                                 }
                             )
                         ) {
-                            // Group channels if enabled
-                            let items = enableChannelGrouping 
-                                ? ChannelGrouper.groupChannels(category.channels)
-                                : category.channels.map { ChannelItem.channel($0) }
-                            
-                            ForEach(items) { item in
+                            ForEach(itemsForCategory(category)) { item in
                                 switch item {
                                 case .channel(let channel):
                                     ChannelRow(channel: channel, selectedChannel: selectedChannel, showIcon: showChannelIcons)
@@ -188,8 +183,13 @@ struct SidebarView: View {
         // Filter by visible categories
         cats = cats.filter { playlistManager.visibleCategories.contains($0.name) }
         
+        // Optimization: If no search and default sort (A-Z), return as is to use cached groups
+        if searchText.isEmpty && sortAscending {
+            return cats
+        }
+        
         // Filter by search text
-        if searchText.count >= 2 { // Reduced threshold for better UX
+        if searchText.count >= 2 {
             cats = cats.map { category in
                 let filteredChannels = category.channels.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
                 return Category(id: category.id, name: category.name, channels: filteredChannels)
@@ -209,6 +209,18 @@ struct SidebarView: View {
         }
         
         return cats
+    }
+    
+    func itemsForCategory(_ category: Category) -> [ChannelItem] {
+        if enableChannelGrouping {
+            if let cached = category.groupedChannels {
+                return cached
+            } else {
+                return ChannelGrouper.groupChannels(category.channels)
+            }
+        } else {
+            return category.channels.map { ChannelItem.channel($0) }
+        }
     }
 }
 

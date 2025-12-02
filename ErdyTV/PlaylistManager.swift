@@ -40,28 +40,40 @@ class PlaylistManager: ObservableObject {
         errorMessage = nil
         
         URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+            if let error = error {
+                DispatchQueue.main.async {
+                    self?.isLoading = false
+                    self?.errorMessage = error.localizedDescription
+                }
+                return
+            }
+            
+            guard let data = data, let content = String(data: data, encoding: .utf8) else {
+                DispatchQueue.main.async {
+                    self?.isLoading = false
+                    self?.errorMessage = "Failed to read playlist data"
+                }
+                return
+            }
+            
+            // Parse in background
+            let allCategories = M3UParser.parse(content: content)
+            
+            // Filter out blocked channels and pre-compute groups
+            let processedCategories = allCategories.map { category in
+                let filteredChannels = category.channels.filter { channel in
+                    !(self?.blockedURLs.contains(channel.streamURL.absoluteString) ?? false)
+                }
+                
+                // Pre-compute groups
+                let grouped = ChannelGrouper.groupChannels(filteredChannels)
+                
+                return Category(id: category.id, name: category.name, channels: filteredChannels, groupedChannels: grouped)
+            }.filter { !$0.channels.isEmpty }
+            
             DispatchQueue.main.async {
                 self?.isLoading = false
-                
-                if let error = error {
-                    self?.errorMessage = error.localizedDescription
-                    return
-                }
-                
-                guard let data = data, let content = String(data: data, encoding: .utf8) else {
-                    self?.errorMessage = "Failed to read playlist data"
-                    return
-                }
-                
-                let allCategories = M3UParser.parse(content: content)
-                
-                // Filter out blocked channels
-                self?.categories = allCategories.map { category in
-                    let filteredChannels = category.channels.filter { channel in
-                        !(self?.blockedURLs.contains(channel.streamURL.absoluteString) ?? false)
-                    }
-                    return Category(id: category.id, name: category.name, channels: filteredChannels)
-                }.filter { !$0.channels.isEmpty }
+                self?.categories = processedCategories
                 
                 // Apply saved order to categories
                 self?.applyOrder()

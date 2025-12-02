@@ -20,11 +20,13 @@ struct Category: Identifiable, Hashable {
     let id: UUID
     let name: String
     var channels: [Channel]
+    var groupedChannels: [ChannelItem]? // Cache for grouped channels
     
-    init(id: UUID = UUID(), name: String, channels: [Channel]) {
+    init(id: UUID = UUID(), name: String, channels: [Channel], groupedChannels: [ChannelItem]? = nil) {
         self.id = id
         self.name = name
         self.channels = channels
+        self.groupedChannels = groupedChannels
     }
 }
 

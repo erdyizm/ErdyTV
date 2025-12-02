@@ -4,6 +4,7 @@ import Combine
 class ImageLoader: NSObject, ObservableObject, URLSessionDelegate {
     @Published var image: NSImage?
     private var cancellable: AnyCancellable?
+    private static let cache = NSCache<NSURL, NSImage>()
     
     // Custom session to handle invalid SSL certificates
     private lazy var session: URLSession = {
@@ -12,9 +13,20 @@ class ImageLoader: NSObject, ObservableObject, URLSessionDelegate {
     }()
     
     func load(url: URL) {
+        // Check cache first
+        if let cachedImage = Self.cache.object(forKey: url as NSURL) {
+            self.image = cachedImage
+            return
+        }
+        
         cancellable = session.dataTaskPublisher(for: url)
             .map { NSImage(data: $0.data) }
             .replaceError(with: nil)
+            .handleEvents(receiveOutput: { [weak self] image in
+                if let image = image {
+                    Self.cache.setObject(image, forKey: url as NSURL)
+                }
+            })
             .receive(on: DispatchQueue.main)
             .assign(to: \.image, on: self)
     }
