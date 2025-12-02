@@ -6,80 +6,165 @@ struct SidebarView: View {
     @Binding var expandedCategories: Set<UUID>
     @State private var searchText = ""
     @State private var showingFilterSheet = false
+    @State private var sortAscending = true
     @AppStorage("showChannelIcons") private var showChannelIcons = true
+    @AppStorage("enableChannelGrouping") private var enableChannelGrouping = true
+    
+    // Group expansion state
+    @State private var expandedGroups: Set<String> = []
 
     var body: some View {
-        ZStack {
-            List(selection: $selectedChannel) {
-                ForEach(filteredCategories) { category in
-                    DisclosureGroup(
-                        isExpanded: Binding(
-                            get: { expandedCategories.contains(category.id) },
-                            set: { isExpanded in
-                                if isExpanded {
-                                    expandedCategories.insert(category.id)
-                                } else {
-                                    expandedCategories.remove(category.id)
-                                }
-                            }
-                        )
-                    ) {
-                        ForEach(category.channels) { channel in
-                            NavigationLink(value: channel) {
-                                HStack {
-                                    if showChannelIcons {
-                                        if let logo = channel.logoURL {
-                                            AsyncImageView(url: logo)
-                                                .frame(width: 30, height: 30)
-                                                .cornerRadius(4)
-                                        } else {
-                                            Image(systemName: "tv")
-                                                .frame(width: 30, height: 30)
-                                        }
-                                    }
-                                    
-                                    Text(channel.name)
-                                        .lineLimit(1)
-                                    Spacer()
-                                }
-                                .padding(.vertical, 4)
-                                .padding(.horizontal, 8)
-                                .background(selectedChannel?.id == channel.id ? Color.accentColor.opacity(0.2) : Color.clear)
-                                .cornerRadius(8)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    } label: {
-                        Text(category.name)
-                            .font(.headline)
-                            .foregroundStyle(.primary)
-                    }
-                }
-            }
-            
-            if playlistManager.isLoading {
-                Color(nsColor: .windowBackgroundColor)
-                    .opacity(0.8)
-                    .ignoresSafeArea()
-                
-                VStack {
-                    ProgressView()
-                        .scaleEffect(1.5)
-                    Text("Loading Channels...")
-                        .font(.caption)
+        VStack(spacing: 0) {
+            // Custom Header
+            HStack {
+                HStack {
+                    Image(systemName: "magnifyingglass")
                         .foregroundColor(.secondary)
-                        .padding(.top, 8)
+                    TextField("Search", text: $searchText)
+                        .textFieldStyle(.plain)
                 }
-            }
-        }
-        .searchable(text: $searchText, placement: .sidebar)
-        .listStyle(.sidebar)
-        .toolbar {
-            ToolbarItem(placement: .automatic) {
+                .padding(6)
+                .background(Color(nsColor: .controlBackgroundColor))
+                .cornerRadius(8)
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.2), lineWidth: 1))
+                
+                Button {
+                    withAnimation {
+                        sortAscending.toggle()
+                    }
+                } label: {
+                    Image(systemName: sortAscending ? "textformat.abc" : "textformat.abc.dottedunderline")
+                        .help(sortAscending ? "Sort Z-A" : "Sort A-Z")
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 4)
+                
                 Button {
                     showingFilterSheet = true
                 } label: {
                     Image(systemName: "line.3.horizontal.decrease.circle")
+                        .help("Filter Categories")
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(10)
+            .background(Color(nsColor: .windowBackgroundColor))
+            
+            Divider()
+            
+            ZStack {
+                List(selection: $selectedChannel) {
+                    ForEach(filteredCategories) { category in
+                        DisclosureGroup(
+                            isExpanded: Binding(
+                                get: { expandedCategories.contains(category.id) },
+                                set: { isExpanded in
+                                    if isExpanded {
+                                        expandedCategories.insert(category.id)
+                                    } else {
+                                        expandedCategories.remove(category.id)
+                                    }
+                                }
+                            )
+                        ) {
+                            // Group channels if enabled
+                            let items = enableChannelGrouping 
+                                ? ChannelGrouper.groupChannels(category.channels)
+                                : category.channels.map { ChannelItem.channel($0) }
+                            
+                            ForEach(items) { item in
+                                switch item {
+                                case .channel(let channel):
+                                    ChannelRow(channel: channel, selectedChannel: selectedChannel, showIcon: showChannelIcons)
+                                        .tag(channel) // Important for selection
+                                        .contextMenu {
+                                            Button {
+                                                selectedChannel = channel
+                                            } label: {
+                                                Label("Play", systemImage: "play.fill")
+                                            }
+                                            
+                                            Divider()
+                                            
+                                            Button(role: .destructive) {
+                                                playlistManager.blockChannel(channel)
+                                            } label: {
+                                                Label("Remove Channel", systemImage: "trash")
+                                            }
+                                        }
+                                    
+                                case .group(let name, let channels):
+                                    DisclosureGroup(
+                                        isExpanded: Binding(
+                                            get: { expandedGroups.contains(item.id) },
+                                            set: { isExpanded in
+                                                if isExpanded {
+                                                    expandedGroups.insert(item.id)
+                                                } else {
+                                                    expandedGroups.remove(item.id)
+                                                }
+                                            }
+                                        )
+                                    ) {
+                                        ForEach(channels) { channel in
+                                            ChannelRow(channel: channel, selectedChannel: selectedChannel, showIcon: showChannelIcons)
+                                                .tag(channel)
+                                                .contextMenu {
+                                                    Button {
+                                                        selectedChannel = channel
+                                                    } label: {
+                                                        Label("Play", systemImage: "play.fill")
+                                                    }
+                                                    
+                                                    Divider()
+                                                    
+                                                    Button(role: .destructive) {
+                                                        playlistManager.blockChannel(channel)
+                                                    } label: {
+                                                        Label("Remove Channel", systemImage: "trash")
+                                                    }
+                                                }
+                                        }
+                                    } label: {
+                                        HStack {
+                                            Image(systemName: "folder")
+                                                .foregroundColor(.secondary)
+                                            Text(name)
+                                                .font(.subheadline)
+                                            Spacer()
+                                            Text("\(channels.count)")
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                                .padding(.horizontal, 6)
+                                                .background(Color.secondary.opacity(0.2))
+                                                .cornerRadius(4)
+                                        }
+                                        .padding(.vertical, 2)
+                                    }
+                                }
+                            }
+                        } label: {
+                            Text(category.name)
+                                .font(.headline)
+                                .foregroundStyle(.primary)
+                        }
+                    }
+                }
+                .listStyle(.sidebar)
+                
+                if playlistManager.isLoading {
+                    Color(nsColor: .windowBackgroundColor)
+                        .opacity(0.8)
+                        .ignoresSafeArea()
+                    
+                    VStack {
+                        ProgressView()
+                            .scaleEffect(1.5)
+                        Text("Loading Channels...")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .padding(.top, 8)
+                    }
                 }
             }
         }
@@ -104,14 +189,58 @@ struct SidebarView: View {
         cats = cats.filter { playlistManager.visibleCategories.contains($0.name) }
         
         // Filter by search text
-        if searchText.count >= 3 {
+        if searchText.count >= 2 { // Reduced threshold for better UX
             cats = cats.map { category in
                 let filteredChannels = category.channels.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
                 return Category(id: category.id, name: category.name, channels: filteredChannels)
             }.filter { !$0.channels.isEmpty }
         }
         
+        // Sort channels within categories
+        cats = cats.map { category in
+            let sortedChannels = category.channels.sorted {
+                if sortAscending {
+                    return $0.name < $1.name
+                } else {
+                    return $0.name > $1.name
+                }
+            }
+            return Category(id: category.id, name: category.name, channels: sortedChannels)
+        }
+        
         return cats
+    }
+}
+
+struct ChannelRow: View {
+    let channel: Channel
+    let selectedChannel: Channel?
+    let showIcon: Bool
+    
+    var body: some View {
+        NavigationLink(value: channel) {
+            HStack {
+                if showIcon {
+                    if let logo = channel.logoURL {
+                        AsyncImageView(url: logo)
+                            .frame(width: 30, height: 30)
+                            .cornerRadius(4)
+                    } else {
+                        Image(systemName: "tv")
+                            .frame(width: 30, height: 30)
+                    }
+                }
+                
+                Text(channel.name)
+                    .lineLimit(1)
+                Spacer()
+            }
+            .padding(.vertical, 4)
+            .padding(.horizontal, 8)
+            .background(selectedChannel?.id == channel.id ? Color.accentColor.opacity(0.2) : Color.clear)
+            .cornerRadius(8)
+        }
+        .buttonStyle(.plain)
     }
 }
 

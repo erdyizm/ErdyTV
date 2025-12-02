@@ -47,7 +47,7 @@ struct ErdyTVApp: App {
         }
         
         Settings {
-            SettingsView()
+            SettingsView(playlistManager: playlistManager)
         }
         
         WindowGroup(id: "help") {

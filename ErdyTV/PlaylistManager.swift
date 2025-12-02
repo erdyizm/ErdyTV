@@ -8,13 +8,17 @@ class PlaylistManager: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     
+    @Published var blockedURLs: Set<String> = []
+    
     private let kPlaylistURLKey = "iptv_playlist_url"
     private let kVisibleCategoriesKey = "visible_categories"
     private let kCategoryOrderKey = "category_order"
+    private let kBlockedURLsKey = "blocked_urls"
     
     init() {
         loadVisibleCategories()
         loadCategoryOrder()
+        loadBlockedURLs()
     }
     
     var savedURL: URL? {
@@ -49,7 +53,15 @@ class PlaylistManager: ObservableObject {
                     return
                 }
                 
-                self?.categories = M3UParser.parse(content: content)
+                let allCategories = M3UParser.parse(content: content)
+                
+                // Filter out blocked channels
+                self?.categories = allCategories.map { category in
+                    let filteredChannels = category.channels.filter { channel in
+                        !(self?.blockedURLs.contains(channel.streamURL.absoluteString) ?? false)
+                    }
+                    return Category(id: category.id, name: category.name, channels: filteredChannels)
+                }.filter { !$0.channels.isEmpty }
                 
                 // Apply saved order to categories
                 self?.applyOrder()
@@ -67,6 +79,28 @@ class PlaylistManager: ObservableObject {
                 }
             }
         }.resume()
+    }
+    
+    func blockChannel(_ channel: Channel) {
+        blockedURLs.insert(channel.streamURL.absoluteString)
+        saveBlockedURLs()
+        
+        // Remove from current list immediately
+        categories = categories.map { category in
+            let filteredChannels = category.channels.filter { $0.id != channel.id }
+            return Category(id: category.id, name: category.name, channels: filteredChannels)
+        }.filter { !$0.channels.isEmpty }
+    }
+    
+    func saveBlockedURLs() {
+        let array = Array(blockedURLs)
+        UserDefaults.standard.set(array, forKey: kBlockedURLsKey)
+    }
+    
+    func loadBlockedURLs() {
+        if let array = UserDefaults.standard.array(forKey: kBlockedURLsKey) as? [String] {
+            blockedURLs = Set(array)
+        }
     }
     
     func applyOrder() {
@@ -126,6 +160,15 @@ class PlaylistManager: ObservableObject {
         categoryOrder = updatedOrder
         saveCategoryOrder()
         applyOrder()
+    }
+    
+    func unblockChannel(url: String) {
+        if blockedURLs.contains(url) {
+            blockedURLs.remove(url)
+            saveBlockedURLs()
+            // Reload playlist to bring back the channel
+            loadPlaylist()
+        }
     }
     
     func clearPlaylist() {
