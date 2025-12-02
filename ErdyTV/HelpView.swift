@@ -52,9 +52,14 @@ struct HelpView: View {
                         .font(.title2)
                         .bold()
                     
-                    Text("• **Search**: Use the search bar at the top of the sidebar to filter channels by name (requires at least 3 characters).")
-                    Text("• **Manage Categories**: Click the filter icon (line with circles) in the sidebar toolbar to hide or reorder channel categories.")
-                    Text("• **Channel Icons**: Go to **ErdyTV > Settings** (or press Cmd+,) to toggle channel logos on or off.")
+                    Text("• **Search & Sort**: Use the top bar to search (min 2 chars) or sort channels (A-Z / Z-A).")
+                    Text("• **Smart Grouping**: Channels with similar names (e.g., Series) are automatically grouped. You can toggle this in Settings.")
+                    Text("• **Context Menu**: Right-click any channel to **Play** or **Remove** it. Removed channels can be restored in Settings.")
+                    Text("• **Manage Categories**: Click the filter icon (line with circles) to hide or reorder categories.")
+                    Text("• **Settings**: Go to **ErdyTV > Settings** (Cmd+,) to:")
+                    Text("  - Toggle Channel Icons")
+                    Text("  - Toggle Smart Grouping")
+                    Text("  - Manage Blocked Channels")
                 }
                 
                 Divider()

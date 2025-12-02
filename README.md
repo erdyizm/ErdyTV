@@ -26,11 +26,18 @@ A modern macOS IPTV player built with SwiftUI and powered by VLC's MobileVLCKit 
   - Filter categories with checkboxes
   - Reorder categories via drag-and-drop
   - Auto-expand selected channel's category
+- **Smart Channel Grouping**: Automatically groups series and related channels (e.g., "Show S01E01") into folders
 - **Channel Highlighting**: Currently playing channel is highlighted in the sidebar
-- **Search**: Quick search across all channels (min 3 characters)
+- **Search & Sort**: 
+  - Quick search across all channels (min 2 characters)
+  - Sort channels A-Z or Z-A
+- **Context Menu**: Right-click channels to Play or Remove (permanently block)
 - **Resizable Sidebar**: Customizable sidebar width in windowed mode
 - **Fullscreen Overlay**: Access channel list in fullscreen by hovering the left edge
-- **Settings**: Toggle channel icons visibility
+- **Settings**: 
+  - Toggle channel icons visibility
+  - Toggle smart channel grouping
+  - Manage/Restore blocked channels
 
 ### 💾 Persistence
 - **Settings Storage**: All preferences saved to UserDefaults
